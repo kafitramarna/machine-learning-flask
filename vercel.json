@@ -1,16 +1,5 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
-  ],
-  "functions": {
-    "api/**/*.py": {
-      "memory": 512,
-      "maxDuration": 10,
-      "externalDependencies": [
-        "numpy",
-        "scikit_learn",
-        "matplotlib"
-      ]
-    }
-  }
+  ]
 }
