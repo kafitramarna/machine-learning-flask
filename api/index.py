@@ -1,5 +1,5 @@
 from flask import Flask
-from Blueprints.regression import regression_bp
+from blueprints.regression import regression_bp
 
 app = Flask(__name__)
 
@@ -13,3 +13,5 @@ def about():
 
 app.register_blueprint(regression_bp, url_prefix='/regression')
 
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
