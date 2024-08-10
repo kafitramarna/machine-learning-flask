@@ -1,5 +1,5 @@
 from flask import Flask
-from blueprints.regression import regression_bp
+from regression import regression_bp
 
 app = Flask(__name__)
 
