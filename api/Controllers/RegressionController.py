@@ -9,7 +9,6 @@ from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from xgboost import XGBRegressor
 import base64
 
 class RegressionController:
@@ -187,20 +186,5 @@ class RegressionController:
             results['r2'] = r2
             if self.X.shape[1] == 1:  # Check if X is 1-dimensional
                 results['image'] = self._plot_results(self.y_test, y_pred, 'Gradient Boosting Regression Results')
-        
-        return results
-
-    def xgboost_reg(self, n_estimators=100, learning_rate=0.1, max_depth=3, objective='reg:squarederror'):
-        model = XGBRegressor(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth, objective=objective)
-        model.fit(self.X_train, self.y_train)
-        
-        results = {'model': model}
-        
-        if self.train_mode:
-            y_pred = model.predict(self.X_test)
-            r2 = r2_score(self.y_test, y_pred)
-            results['r2'] = r2
-            if self.X.shape[1] == 1:  # Check if X is 1-dimensional
-                results['image'] = self._plot_results(self.y_test, y_pred, 'XGBoost Regression Results')
         
         return results

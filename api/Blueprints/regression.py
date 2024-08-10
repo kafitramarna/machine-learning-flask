@@ -171,25 +171,3 @@ def gradient_boosting_regression():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@regression_bp.route('/xgboost-regression', methods=['POST'])
-def xgboost_regression():
-    data = request.get_json()
-    
-    if not data or 'X' not in data or 'y' not in data:
-        return jsonify({'error': 'Invalid input data'}), 400
-    
-    try:
-        X = np.array(data['X'])
-        y = np.array(data['y'])
-        n_estimators = data.get('n_estimators', 100)
-        learning_rate = data.get('learning_rate', 0.1)
-        max_depth = data.get('max_depth', 3)
-        objective = data.get('objective', 'reg:squarederror')
-        
-        reg_controller = RegressionController(X, y, **data)
-        results = reg_controller.xgboost_reg(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth, objective=objective)
-        
-        return jsonify(create_regression_response(results)), 200
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
