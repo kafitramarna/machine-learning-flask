@@ -13,6 +13,3 @@ def about():
 
 app.register_blueprint(regression_bp, url_prefix='/regression')
 
-
-if __name__ == '__main__':
-    app.run(debug=True)
