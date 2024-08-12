@@ -77,12 +77,20 @@ def svr_regression():
     try:
         X = np.array(data['X'])
         y = np.array(data['y'])
+        X_new = np.array(data['X_new'])
         kernel = data.get('kernel', 'rbf')
+        degree = data.get('degree', 3)
+        gamma = data.get('gamma', 'scale')
+        coef0 = data.get('coef0', 0.0)
+        tol = data.get('tol', 0.001)
         C = data.get('C', 1.0)
         epsilon = data.get('epsilon', 0.1)
-        gamma = data.get('gamma', 'scale')
+        shrinking = data.get('shrinking', True)
+        cache_size = data.get('cache_size', 200)
+        verbose = data.get('verbose', False)
+        max_iter = data.get('max_iter', -1)
         
-        reg_controller = RegressionController(X, y, **data)
+        reg_controller = RegressionController(X, y,)
         results = reg_controller.svm_reg(kernel=kernel, C=C, epsilon=epsilon, gamma=gamma)
         
         return jsonify(create_regression_response(results)), 200

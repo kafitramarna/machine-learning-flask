@@ -9,36 +9,38 @@ from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
 import base64
 
 class RegressionController:
-    def __init__(self, X, y, feature_scaling=False, test_size=None, random_state=None):
+    def __init__(self, X, y, feature_scaling=False, test_size=0.2, random_state=42):
         self.X = X
         self.y = y
         self.feature_scaling = feature_scaling
         self.test_size = test_size
         self.random_state = random_state
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X_scaled, self.y, test_size=self.test_size, random_state=self.random_state)
+        self.train_mode = True
         
         if self.feature_scaling:
             self.scaler_X = StandardScaler()
-            self.X_scaled = self.scaler_X.fit_transform(self.X)
-        else:
-            self.X_scaled = self.X
-        
-        if self.test_size is not None:
-            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
-                self.X_scaled, self.y, test_size=self.test_size, random_state=self.random_state)
-            self.train_mode = True
-        else:
-            self.X_train = self.X_scaled
-            self.y_train = self.y
-            self.train_mode = False
-        
+            self.X_train = self.scaler_X.fit_transform(self.X_train)
+            self.X_test = self.scaler_X.transform(self.X_test)
+            
     def _inverse_transform(self, X):
-        if self.feature_scaling:
-            return self.scaler_X.inverse_transform(X)
-        return X
-
+        return self.scaler_X.inverse_transform(X)
+    def _one_hot_encode(self):
+        string_col = []
+        for col in range(len(self.X[0])):
+            if isinstance(self.X[0][col], str):
+                string_col.append(col)
+        if len(string_col) > 0:
+            ct = ColumnTransformer(transformers=[('encoder', OneHotEncoder(), string_col)], remainder='passthrough')
+            self.X_train = np.array(ct.fit_transform(self.X_train))
+            self.X_test = np.array(ct.transform(self.X_test))
+            
+        
     def _plot_results(self, title, model):
         # Create a BytesIO object to save the plot as bytes
         buf = io.BytesIO()
