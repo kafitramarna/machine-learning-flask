@@ -17,12 +17,13 @@ def create_regression_response(results):
     
     if 'y_new' in results:
         response['y_new'] = results['y_new']
+    if 'mse' in results:
+        response['mse'] = results['mse']
     return response
 
 @regression_bp.route('/linear-regression', methods=['POST'])
 def linear_regression():
     data = request.get_json()
-    print(data)
     if not data or 'X' not in data or 'y' not in data:
         return jsonify({'error': 'Invalid input data'}), 400
     
@@ -30,10 +31,13 @@ def linear_regression():
         X = np.array(data['X'])
         y = np.array(data['y'])
         X_new = np.array(data['X_new'])
+        copy_X = data.get('copy_X', True)
+        n_jobs = data.get('n_jobs', None)
+        positive = data.get('positive', False)
         fit_intercept = data.get('fit_intercept', True)
-        print(X_new)
+        
         reg_controller = RegressionController(X, y,test_size=0.2, random_state=42)
-        results = reg_controller.linear_reg(fit_intercept=fit_intercept, X_new=X_new)
+        results = reg_controller.linear_reg(fit_intercept=fit_intercept, X_new=X_new, copy_X=copy_X, n_jobs=n_jobs, positive=positive)
         return jsonify(create_regression_response(results)), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -41,20 +45,23 @@ def linear_regression():
 @regression_bp.route('/poly-regression', methods=['POST'])
 def poly_regression():
     data = request.get_json()
-    
     if not data or 'X' not in data or 'y' not in data:
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
         X = np.array(data['X'])
         y = np.array(data['y'])
+        X_new = np.array(data['X_new'])
         degree = data.get('degree', 2)
         include_bias = data.get('include_bias', True)
         interaction_only = data.get('interaction_only', False)
-        
-        reg_controller = RegressionController(X, y, **data)
-        results = reg_controller.poly_reg(degree=degree, include_bias=include_bias, interaction_only=interaction_only)
-        
+        order = data.get('order', 'C')
+        copy_X = data.get('copy_X', True)
+        n_jobs = data.get('n_jobs', None)
+        positive = data.get('positive', False)
+        fit_intercept = data.get('fit_intercept', True)
+        reg_controller = RegressionController(X, y,test_size=0.2, random_state=42)
+        results = reg_controller.poly_reg(X_new=X_new, degree=degree, include_bias=include_bias, interaction_only=interaction_only, order=order, copy_X=copy_X, n_jobs=n_jobs, positive=positive, fit_intercept=fit_intercept)        
         return jsonify(create_regression_response(results)), 200
     
     except Exception as e:
