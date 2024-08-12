@@ -39,7 +39,7 @@ class RegressionController:
             ct = ColumnTransformer(transformers=[('encoder', OneHotEncoder(), string_col)], remainder='passthrough')
             self.X_train = np.array(ct.fit_transform(self.X_train))
             self.X_test = np.array(ct.transform(self.X_test))
-            
+             
         
     def _plot_results(self, title, model):
         # Create a BytesIO object to save the plot as bytes
