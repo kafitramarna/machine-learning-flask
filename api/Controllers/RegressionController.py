@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import io
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.svm import SVR
@@ -39,18 +39,71 @@ class RegressionController:
             return self.scaler_X.inverse_transform(X)
         return X
 
-    def _plot_results(self, y_true, y_pred, title):
+    def _plot_results(self, title, model):
         # Create a BytesIO object to save the plot as bytes
         buf = io.BytesIO()
         
         # Create the plot
         plt.figure(figsize=(10, 6))
+        
+        # Create a range of values for plotting the regression line
+        X_range = np.linspace(np.min(self.X_train), np.max(self.X_train), 100).reshape(-1, 1)
+        y_pred_range = model.predict(X_range)
+        
+        # Plot the training data
         if self.feature_scaling:
-            plt.scatter(self._inverse_transform(self.X_test), y_true, color='red', label='Actual')
-            plt.scatter(self._inverse_transform(self.X_test), y_pred, color='blue', label='Predicted')
+            plt.scatter(self._inverse_transform(self.X_train), self.y_train, color='red', label='Training Data')
+            plt.scatter(self._inverse_transform(self.X_test), self.y_test, color='blue', label='Test Data')
         else:
-            plt.scatter(self.X_test, y_true, color='red', label='Actual')
-            plt.scatter(self.X_test, y_pred, color='blue', label='Predicted')
+            plt.scatter(self.X_train, self.y_train, color='red', label='Training Data')
+            plt.scatter(self.X_test, self.y_test, color='blue', label='Test Data')
+        
+        # Plot the regression line
+        plt.plot(X_range, y_pred_range, color='green', linewidth=3, label='Linear Regression')
+        
+        # Add title and labels
+        plt.title(title)
+        plt.xlabel('Feature')
+        plt.ylabel('Target')
+        plt.legend()
+        plt.grid(True)
+        
+        # Save the plot to the BytesIO object in PNG format
+        plt.savefig(buf, format='png')
+        buf.seek(0)  # Rewind the buffer to the beginning
+        
+        # Convert the byte data to a Base64-encoded string
+        image_bytes = buf.getvalue()
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Close the plot and buffer
+        plt.close()
+        buf.close()
+        
+        # Return the Base64-encoded string
+        return image_base64
+    def _plot_poly_results(self, title, model, poly):
+        # Create a BytesIO object to save the plot as bytes
+        buf = io.BytesIO()
+        
+        # Create the plot
+        plt.figure(figsize=(10, 6))
+        
+        # Create a range of values for plotting the polynomial fit
+        X_range = np.linspace(np.min(self.X_train), np.max(self.X_train), 100).reshape(-1, 1)
+        X_range_poly = poly.transform(X_range)
+        y_pred_range = model.predict(X_range_poly)
+        
+        # Plot training data
+        if self.feature_scaling:
+            plt.scatter(self._inverse_transform(self.X_train), self.y_train, color='red', label='Training Data')
+            plt.scatter(self._inverse_transform(self.X_test), self.y_test, color='blue', label='Test Data')
+        else:
+            plt.scatter(self.X_train, self.y_train, color='red', label='Training Data')
+            plt.scatter(self.X_test, self.y_test, color='blue', label='Test Data')
+        
+        # Plot the polynomial fit
+        plt.plot(X_range, y_pred_range, color='green', linewidth=3, label='Polynomial Fit')
         
         # Add title and labels
         plt.title(title)
@@ -74,44 +127,46 @@ class RegressionController:
         # Return the Base64-encoded string
         return image_base64
 
-    def linear_reg(self, fit_intercept=True , X_new=None):
-        model = LinearRegression()
+    def linear_reg(self, fit_intercept=True , X_new=None, copy_X=True, n_jobs=None, positive=False):
+        model = LinearRegression(fit_intercept=fit_intercept, copy_X=copy_X, n_jobs=n_jobs, positive=positive)
         model.fit(self.X_train, self.y_train)
         results = {'model': model}
+        
         if self.train_mode:
             y_pred = model.predict(self.X_test)
             r2 = r2_score(self.y_test, y_pred)
+            mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
-            if self.X.shape[1] == 1:  # Check if X is 1-dimensional
-                results['image'] = self._plot_results(self.y_test, y_pred, 'Linear Regression Results')
+            results['mse'] = mse
+        if self.X.shape[1] == 1:
+            # Update plotting to use the model directly
+            results['image'] = self._plot_results('Linear Regression Results', model)
+        
         if X_new is not None:
-            y_new = model.predict([[20],[21]])
-            # print(y_new)
-            results['y_new'] = y_new.tolist()  # Convert numpy array to list for JSON serialization
-        # print(results)
+            y_new = model.predict(X_new)
+            results['y_new'] = y_new.tolist()
+            
         return results
 
-    def poly_reg(self, degree=2, include_bias=True, interaction_only=False):
-        poly = PolynomialFeatures(degree=degree, include_bias=include_bias, interaction_only=interaction_only)
-        X_poly_train = poly.fit_transform(self.X_train)
-        
-        if self.train_mode:
-            X_poly_test = poly.transform(self.X_test)
-        else:
-            X_poly_test = X_poly_train
-        
-        model = LinearRegression()
-        model.fit(X_poly_train, self.y_train)
-        y_pred = model.predict(X_poly_test)
-        
+    def poly_reg(self,X_new=None, degree=2, include_bias=True, interaction_only=False, order='C', copy_X=True, n_jobs=None, positive=False, fit_intercept=True):
+        poly = PolynomialFeatures(degree=degree, include_bias=include_bias, interaction_only=interaction_only, order=order)
+        model = LinearRegression(copy_X=copy_X, n_jobs=n_jobs, positive=positive, fit_intercept=fit_intercept)
         results = {'model': model}
-        
         if self.train_mode:
+            X_poly_train = poly.fit_transform(self.X_train)
+            X_poly_test = poly.transform(self.X_test)
+            model.fit(X_poly_train, self.y_train)
+            y_pred = model.predict(X_poly_test)
             r2 = r2_score(self.y_test, y_pred)
+            mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
-            if self.X.shape[1] == 1:  # Check if X is 1-dimensional
-                results['image'] = self._plot_results(self.y_test, y_pred, 'Polynomial Regression Results')
-        
+            results['mse'] = mse
+        if self.X.shape[1] == 1: 
+            results['image'] = self._plot_poly_results('Polynomial Regression Results',model,poly) 
+        if X_new is not None:
+            X_poly_new = poly.transform(X_new)
+            y_new = model.predict(X_poly_new)
+            results['y_new'] = y_new.tolist()
         return results
 
     def svm_reg(self, kernel='rbf', C=1.0, epsilon=0.1, gamma='scale'):
