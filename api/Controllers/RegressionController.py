@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('agg')
 import io
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
@@ -236,7 +238,57 @@ class RegressionController:
         
         # Return the Base64-encoded string
         return image_base64
-
+    def _plot_gradient_boosting_results(self, title, model):
+        # Create a BytesIO object to save the plot as bytes
+        buf = io.BytesIO()
+        
+        # Create the plot
+        plt.figure(figsize=(10, 6))
+        
+        # Create a range of values for plotting the Gradient Boosting prediction line
+        X_range = np.linspace(np.min(self.X_train if not self.feature_scaling else self._inverse_transform(self.X_train)), 
+                            np.max(self.X_train if not self.feature_scaling else self._inverse_transform(self.X_train)), 
+                            100).reshape(-1, 1)
+        if self.feature_scaling:
+            X_range_scaled = self.scaler.transform(X_range)
+            y_pred_range = model.predict(X_range_scaled)
+            X_range_plot = self._inverse_transform(X_range)
+        else:
+            y_pred_range = model.predict(X_range)
+            X_range_plot = X_range
+        
+        # Plot training and test data
+        if self.feature_scaling:
+            plt.scatter(self._inverse_transform(self.X_train), self.y_train, color='red', label='Training Data')
+            plt.scatter(self._inverse_transform(self.X_test), self.y_test, color='blue', label='Test Data')
+        else:
+            plt.scatter(self.X_train, self.y_train, color='red', label='Training Data')
+            plt.scatter(self.X_test, self.y_test, color='blue', label='Test Data')
+        
+        # Plot the Gradient Boosting prediction line
+        plt.plot(X_range_plot, y_pred_range, color='green', linewidth=3, label='Gradient Boosting Prediction')
+        
+        # Add title and labels
+        plt.title(title)
+        plt.xlabel('Feature')
+        plt.ylabel('Target')
+        plt.legend()
+        plt.grid(True)
+        
+        # Save the plot to the BytesIO object in PNG format
+        plt.savefig(buf, format='png')
+        buf.seek(0)  # Rewind the buffer to the beginning
+        
+        # Convert the byte data to a Base64-encoded string
+        image_bytes = buf.getvalue()
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Close the plot and buffer
+        plt.close()
+        buf.close()
+        
+        # Return the Base64-encoded string
+        return image_base64
 
     def linear_reg(self, fit_intercept=True , X_new=None, copy_X=True, n_jobs=None, positive=False):
         model = LinearRegression(
@@ -421,17 +473,43 @@ class RegressionController:
             results['y_new'] = y_new.tolist()
         return results
 
-    def gradient_boosting_reg(self, n_estimators=100, learning_rate=0.1, max_depth=3):
-        model = GradientBoostingRegressor(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth)
+    def gradient_boosting_reg(self, X_new=None, loss='squared_error', learning_rate=0.1, n_estimators=100, subsample=1.0, criterion='friedman_mse', min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_depth=3, min_impurity_decrease=0.0, init=None, random_state=None, max_features=None, alpha=0.9, verbose=0, max_leaf_nodes=None, warm_start=False, validation_fraction=0.1, n_iter_no_change=None, tol=0.0001, ccp_alpha=0.0):
+        model = GradientBoostingRegressor(
+                    n_estimators=n_estimators,
+                    learning_rate=learning_rate,
+                    max_depth=max_depth,
+                    loss=loss,
+                    subsample=subsample,
+                    criterion=criterion,
+                    min_samples_split=min_samples_split,
+                    min_samples_leaf=min_samples_leaf,
+                    min_weight_fraction_leaf=min_weight_fraction_leaf,
+                    min_impurity_decrease=min_impurity_decrease,
+                    init=init,
+                    random_state=random_state,
+                    max_features=max_features,
+                    alpha=alpha,
+                    verbose=verbose,
+                    max_leaf_nodes=max_leaf_nodes,
+                    warm_start=warm_start,
+                    validation_fraction=validation_fraction,
+                    n_iter_no_change=n_iter_no_change,
+                    tol=tol,
+                    ccp_alpha=ccp_alpha
+                )
         model.fit(self.X_train, self.y_train)
         
         results = {'model': model}
-        
         if self.train_mode:
             y_pred = model.predict(self.X_test)
             r2 = r2_score(self.y_test, y_pred)
+            mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
-            if self.X.shape[1] == 1:  # Check if X is 1-dimensional
-                results['image'] = self._plot_results(self.y_test, y_pred, 'Gradient Boosting Regression Results')
-        
+            results['mse'] = mse
+        if self.X.shape[1] == 1:  # Check if X is 1-dimensional
+            results['image'] = self._plot_gradient_boosting_results('Gradient Boosting Regression Results', model)
+        if X_new is not None:
+            X_new = X_new if len(self.string_col) == 0 else np.array(self.ct.transform(X_new),dtype=np.float64)
+            y_new = model.predict(X_new if not self.feature_scaling else self.scaler_X.transform(X_new))
+            results['y_new'] = y_new.tolist()
         return results

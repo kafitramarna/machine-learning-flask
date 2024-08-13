@@ -275,15 +275,62 @@ def gradient_boosting_regression():
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
-        X = np.array(data['X'])
+        X = data['X']
+        string_col = _is_able_to_encode(X)
+        X = np.array(X)
         y = np.array(data['y'])
+        X_new = data.get('X_new', None)
         n_estimators = data.get('n_estimators', 100)
         learning_rate = data.get('learning_rate', 0.1)
         max_depth = data.get('max_depth', 3)
+        loss = data.get('loss', 'squared_error')
+        subsample = data.get('subsample', 1.0)
+        criterion = data.get('criterion', 'friedman_mse')
+        min_samples_split = data.get('min_samples_split', 2)
+        min_samples_leaf = data.get('min_samples_leaf', 1)
+        min_weight_fraction_leaf = data.get('min_weight_fraction_leaf', 0.0)
+        min_impurity_decrease = data.get('min_impurity_decrease', 0.0)
+        init = data.get('init', None)
+        random_state_gb = data.get('random_state_gb', None)
+        max_features = data.get('max_features', None)
+        alpha = data.get('alpha', 0.9)
+        verbose = data.get('verbose', 0)
+        max_leaf_nodes = data.get('max_leaf_nodes', None)
+        warm_start = data.get('warm_start', False)
+        validation_fraction = data.get('validation_fraction', 0.1)
+        n_iter_no_change = data.get('n_iter_no_change', None)
+        tol = data.get('tol', 0.0001)
+        ccp_alpha = data.get('ccp_alpha', 0.0)
+
+        feature_scaling = data.get('feature_scaling', False)
+        test_size = data.get('test_size', 0.2)
+        random_state = data.get('random_state', 42)
         
-        reg_controller = RegressionController(X, y, **data)
-        results = reg_controller.gradient_boosting_reg(n_estimators=n_estimators, learning_rate=learning_rate, max_depth=max_depth)
-        
+        reg_controller = RegressionController(X, y, feature_scaling=feature_scaling, test_size=test_size, random_state=random_state, string_col=string_col)
+        results = reg_controller.gradient_boosting_reg(
+                        X_new=X_new,
+                        n_estimators=n_estimators,
+                        learning_rate=learning_rate,
+                        max_depth=max_depth,
+                        loss=loss,
+                        subsample=subsample,
+                        criterion=criterion,
+                        min_samples_split=min_samples_split,
+                        min_samples_leaf=min_samples_leaf,
+                        min_weight_fraction_leaf=min_weight_fraction_leaf,
+                        min_impurity_decrease=min_impurity_decrease,
+                        init=init,
+                        random_state=random_state_gb,
+                        max_features=max_features,
+                        alpha=alpha,
+                        verbose=verbose,
+                        max_leaf_nodes=max_leaf_nodes,
+                        warm_start=warm_start,
+                        validation_fraction=validation_fraction,
+                        n_iter_no_change=n_iter_no_change,
+                        tol=tol,
+                        ccp_alpha=ccp_alpha
+                    )
         return jsonify(create_regression_response(results)), 200
     
     except Exception as e:
