@@ -185,10 +185,65 @@ class RegressionController:
         
         # Return the Base64-encoded string
         return image_base64
+    def _plot_decision_tree_results(self, title, model):
+        # Create a BytesIO object to save the plot as bytes
+        buf = io.BytesIO()
         
+        # Create the plot
+        plt.figure(figsize=(10, 6))
+        
+        # Create a range of values for plotting the Decision Tree prediction line
+        X_range = np.linspace(np.min(self.X_train if not self.feature_scaling else self._inverse_transform(self.X_train)), 
+                            np.max(self.X_train if not self.feature_scaling else self._inverse_transform(self.X_train)), 
+                            100).reshape(-1, 1)
+        if self.feature_scaling:
+            X_range_scaled = self.scaler.transform(X_range)
+            y_pred_range = model.predict(X_range_scaled)
+            X_range_plot = self._inverse_transform(X_range)
+        else:
+            y_pred_range = model.predict(X_range)
+            X_range_plot = X_range
+        
+        # Plot training and test data
+        if self.feature_scaling:
+            plt.scatter(self._inverse_transform(self.X_train), self.y_train, color='red', label='Training Data')
+            plt.scatter(self._inverse_transform(self.X_test), self.y_test, color='blue', label='Test Data')
+        else:
+            plt.scatter(self.X_train, self.y_train, color='red', label='Training Data')
+            plt.scatter(self.X_test, self.y_test, color='blue', label='Test Data')
+        
+        # Plot the Decision Tree prediction line
+        plt.plot(X_range_plot, y_pred_range, color='green', linewidth=3, label='Decision Tree Prediction')
+        
+        # Add title and labels
+        plt.title(title)
+        plt.xlabel('Feature')
+        plt.ylabel('Target')
+        plt.legend()
+        plt.grid(True)
+        
+        # Save the plot to the BytesIO object in PNG format
+        plt.savefig(buf, format='png')
+        buf.seek(0)  # Rewind the buffer to the beginning
+        
+        # Convert the byte data to a Base64-encoded string
+        image_bytes = buf.getvalue()
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Close the plot and buffer
+        plt.close()
+        buf.close()
+        
+        # Return the Base64-encoded string
+        return image_base64
+
 
     def linear_reg(self, fit_intercept=True , X_new=None, copy_X=True, n_jobs=None, positive=False):
-        model = LinearRegression(fit_intercept=fit_intercept, copy_X=copy_X, n_jobs=n_jobs, positive=positive)
+        model = LinearRegression(
+                    fit_intercept=fit_intercept, 
+                    copy_X=copy_X, 
+                    n_jobs=n_jobs, 
+                    positive=positive)
         model.fit(self.X_train, self.y_train)
         results = {'model': model}
         if self.train_mode:
@@ -209,8 +264,16 @@ class RegressionController:
         return results
 
     def poly_reg(self,X_new=None, degree=2, include_bias=True, interaction_only=False, order='C', copy_X=True, n_jobs=None, positive=False, fit_intercept=True):
-        poly = PolynomialFeatures(degree=degree, include_bias=include_bias, interaction_only=interaction_only, order=order)
-        model = LinearRegression(copy_X=copy_X, n_jobs=n_jobs, positive=positive, fit_intercept=fit_intercept)
+        poly = PolynomialFeatures(
+                    degree=degree, 
+                    include_bias=include_bias, 
+                    interaction_only=interaction_only, 
+                    order=order)
+        model = LinearRegression(
+                    copy_X=copy_X, 
+                    n_jobs=n_jobs, 
+                    positive=positive, 
+                    fit_intercept=fit_intercept)
         results = {'model': model}
         if self.train_mode:
             X_poly_train = poly.fit_transform(self.X_train)
@@ -231,7 +294,18 @@ class RegressionController:
         return results
 
     def svm_reg(self, X_new=None, kernel='rbf', degree=3, gamma='scale', coef0=0.0, tol=0.001, C=1.0, epsilon=0.1, shrinking=True, cache_size=200, verbose=False, max_iter=-1 ):
-        model = SVR(kernel=kernel, degree=degree, gamma=gamma, coef0=coef0, tol=tol, C=C, epsilon=epsilon, shrinking=shrinking, cache_size=cache_size, verbose=verbose, max_iter=max_iter)
+        model = SVR(
+                    kernel=kernel, 
+                    degree=degree, 
+                    gamma=gamma, 
+                    coef0=coef0, 
+                    tol=tol, 
+                    C=C, 
+                    epsilon=epsilon, 
+                    shrinking=shrinking, 
+                    cache_size=cache_size, 
+                    verbose=verbose, 
+                    max_iter=max_iter)
         model.fit(self.X_train, self.y_train)
         results = {'model': model}
         print(self.X_train)
@@ -252,7 +326,14 @@ class RegressionController:
         return results
 
     def knn_reg(self,X_new=None, n_neighbors=5, weights='uniform', algorithm='auto',leaf_size=30, p=2, metric='minkowski', metric_params=None, n_jobs=None):
-        model = KNeighborsRegressor(n_neighbors=n_neighbors, weights=weights, algorithm=algorithm,leaf_size=leaf_size, p=p, metric=metric, metric_params=metric_params, n_jobs=n_jobs)
+        model = KNeighborsRegressor(
+                    n_neighbors=n_neighbors, 
+                    weights=weights, 
+                    algorithm=algorithm,
+                    leaf_size=leaf_size, 
+                    p=p, metric=metric, 
+                    metric_params=metric_params, 
+                    n_jobs=n_jobs)
         model.fit(self.X_train, self.y_train)
         
         results = {'model': model}
@@ -272,18 +353,34 @@ class RegressionController:
             results['y_new'] = y_new.tolist()
         return results
 
-    def decision_tree_reg(self, criterion='squared_error', splitter='best', max_depth=None):
-        model = DecisionTreeRegressor(criterion=criterion, splitter=splitter, max_depth=max_depth)
+    def decision_tree_reg(self,X_new=None, criterion='squared_error', splitter='best', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features=None, random_state=None, max_leaf_nodes=None, min_impurity_decrease=0.0, ccp_alpha=0.0, monotonic_cst=None):
+        model = DecisionTreeRegressor(
+                    criterion=criterion,
+                    splitter=splitter,
+                    max_depth=max_depth,
+                    min_samples_split=min_samples_split,
+                    min_samples_leaf=min_samples_leaf,
+                    min_weight_fraction_leaf=min_weight_fraction_leaf,
+                    max_features=max_features,
+                    random_state=random_state,
+                    max_leaf_nodes=max_leaf_nodes,
+                    min_impurity_decrease=min_impurity_decrease,
+                    ccp_alpha=ccp_alpha,
+                    monotonic_cst=monotonic_cst)
         model.fit(self.X_train, self.y_train)
-        
         results = {'model': model}
-        
         if self.train_mode:
             y_pred = model.predict(self.X_test)
             r2 = r2_score(self.y_test, y_pred)
             results['r2'] = r2
-            if self.X.shape[1] == 1:  # Check if X is 1-dimensional
-                results['image'] = self._plot_results(self.y_test, y_pred, 'Decision Tree Regression Results')
+            mse = mean_squared_error(self.y_test, y_pred)
+            results['mse'] = mse
+        if self.X.shape[1] == 1:  # Check if X is 1-dimensional
+            results['image'] = self._plot_decision_tree_results('Decision Tree Regression Results', model)
+        if X_new is not None:
+            X_new = X_new if len(self.string_col) == 0 else np.array(self.ct.transform(X_new),dtype=np.float64)
+            y_new = model.predict(X_new if not self.feature_scaling else self.scaler_X.transform(X_new))
+            results['y_new'] = y_new.tolist()
         
         return results
 

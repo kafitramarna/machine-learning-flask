@@ -159,14 +159,44 @@ def decision_tree_regression():
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
-        X = np.array(data['X'])
+        X = data['X']
+        string_col = _is_able_to_encode(X)
+        X = np.array(X)
         y = np.array(data['y'])
+        X_new = data.get('X_new', None)
         criterion = data.get('criterion', 'squared_error')
         splitter = data.get('splitter', 'best')
         max_depth = data.get('max_depth', None)
+        min_samples_split = data.get('min_samples_split', 2)
+        min_samples_leaf = data.get('min_samples_leaf', 1)
+        min_weight_fraction_leaf = data.get('min_weight_fraction_leaf', 0.0)
+        max_features = data.get('max_features', None)
+        random_state_dec = data.get('random_state_dec', None)
+        max_leaf_nodes = data.get('max_leaf_nodes', None)
+        min_impurity_decrease = data.get('min_impurity_decrease', 0.0)
+        ccp_alpha = data.get('ccp_alpha', 0.0)
+        monotonic_cst = data.get('monotonic_cst', None)
+
+        feature_scaling = data.get('feature_scaling', False)
+        test_size = data.get('test_size', 0.2)
+        random_state = data.get('random_state', 42)
         
-        reg_controller = RegressionController(X, y, **data)
-        results = reg_controller.decision_tree_reg(criterion=criterion, splitter=splitter, max_depth=max_depth)
+        reg_controller = RegressionController(X, y, feature_scaling=feature_scaling, test_size=test_size, random_state=random_state, string_col=string_col)
+        results = reg_controller.decision_tree_reg(
+                    X_new=X_new,
+                    criterion=criterion,
+                    splitter=splitter,
+                    max_depth=max_depth,
+                    min_samples_split=min_samples_split,
+                    min_samples_leaf=min_samples_leaf,
+                    min_weight_fraction_leaf=min_weight_fraction_leaf,
+                    max_features=max_features,
+                    random_state=random_state_dec,
+                    max_leaf_nodes=max_leaf_nodes,
+                    min_impurity_decrease=min_impurity_decrease,
+                    ccp_alpha=ccp_alpha,
+                    monotonic_cst=monotonic_cst
+                )
         
         return jsonify(create_regression_response(results)), 200
     
