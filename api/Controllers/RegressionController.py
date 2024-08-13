@@ -384,19 +384,41 @@ class RegressionController:
         
         return results
 
-    def random_forest_reg(self, n_estimators=100, criterion='squared_error', max_depth=None):
-        model = RandomForestRegressor(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth)
+    def random_forest_reg(self, X_new=None, n_estimators=100,  criterion='squared_error', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features=1.0, max_leaf_nodes=None, min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None, random_state=None, verbose=0, warm_start=False, ccp_alpha=0.0, max_samples=None, monotonic_cst=None):
+        model = RandomForestRegressor(
+                    n_estimators=n_estimators,
+                    criterion=criterion,
+                    max_depth=max_depth,
+                    min_samples_split=min_samples_split,
+                    min_samples_leaf=min_samples_leaf,
+                    min_weight_fraction_leaf=min_weight_fraction_leaf,
+                    max_features=max_features,
+                    max_leaf_nodes=max_leaf_nodes,
+                    min_impurity_decrease=min_impurity_decrease,
+                    bootstrap=bootstrap,
+                    oob_score=oob_score,
+                    n_jobs=n_jobs,
+                    random_state=random_state,
+                    verbose=verbose,
+                    warm_start=warm_start,
+                    ccp_alpha=ccp_alpha,
+                    max_samples=max_samples,
+                    monotonic_cst=monotonic_cst
+                )
         model.fit(self.X_train, self.y_train)
-        
         results = {'model': model}
-        
         if self.train_mode:
             y_pred = model.predict(self.X_test)
             r2 = r2_score(self.y_test, y_pred)
+            mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
-            if self.X.shape[1] == 1:  # Check if X is 1-dimensional
-                results['image'] = self._plot_results(self.y_test, y_pred, 'Random Forest Regression Results')
-        
+            results['mse'] = mse
+        if self.X.shape[1] == 1:  # Check if X is 1-dimensional
+            results['image'] = self._plot_decision_tree_results('Random Forest Regression Results', model)
+        if X_new is not None:
+            X_new = X_new if len(self.string_col) == 0 else np.array(self.ct.transform(X_new),dtype=np.float64)
+            y_new = model.predict(X_new if not self.feature_scaling else self.scaler_X.transform(X_new))
+            results['y_new'] = y_new.tolist()
         return results
 
     def gradient_boosting_reg(self, n_estimators=100, learning_rate=0.1, max_depth=3):
