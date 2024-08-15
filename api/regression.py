@@ -105,7 +105,7 @@ def svr_regression():
         verbose = data.get('verbose', False)
         max_iter = data.get('max_iter', -1)
         
-        reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
+        reg_controller = RegressionController(X, y, feature_scaling_X=True, feature_scaling_y=True, test_size=test_size, random_state=random_state, string_col=string_col)
         results = reg_controller.svm_reg(X_new=X_new, kernel=kernel, degree=degree, gamma=gamma, coef0=coef0, tol=tol, C=C, epsilon=epsilon, shrinking=shrinking, cache_size=cache_size, verbose=verbose, max_iter=max_iter)
         return jsonify(create_regression_response(results)), 200
     
@@ -157,7 +157,6 @@ def decision_tree_regression():
         min_impurity_decrease = data.get('min_impurity_decrease', 0.0)
         ccp_alpha = data.get('ccp_alpha', 0.0)
         monotonic_cst = data.get('monotonic_cst', None)
-        
         reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
         results = reg_controller.decision_tree_reg(X_new=X_new, criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf, max_features=max_features, random_state=random_state_dec, max_leaf_nodes=max_leaf_nodes, min_impurity_decrease=min_impurity_decrease, ccp_alpha=ccp_alpha, monotonic_cst=monotonic_cst)
         return jsonify(create_regression_response(results)), 200
@@ -179,7 +178,7 @@ def random_forest_regression():
         min_samples_split = data.get('min_samples_split', 2)
         min_samples_leaf = data.get('min_samples_leaf', 1)
         min_weight_fraction_leaf = data.get('min_weight_fraction_leaf', 0.0)
-        max_features = data.get('max_features', 'auto')
+        max_features = data.get('max_features', 1.0)
         max_leaf_nodes = data.get('max_leaf_nodes', None)
         bootstrap = data.get('bootstrap', True)
         oob_score = data.get('oob_score', False)
@@ -193,6 +192,62 @@ def random_forest_regression():
         
         reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
         results = reg_controller.random_forest_reg(X_new=X_new, n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf, max_features=max_features, max_leaf_nodes=max_leaf_nodes, bootstrap=bootstrap, oob_score=oob_score, n_jobs=n_jobs, random_state=random_state_rf, verbose=verbose, warm_start=warm_start, ccp_alpha=ccp_alpha, max_samples=max_samples, monotonic_cst=monotonic_cst)
+        return jsonify(create_regression_response(results)), 200
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@regression_bp.route('/gradient-boosting-regression', methods=['POST'])
+def gradient_boosting_regression():
+    data = request.get_json()
+    if not data or 'X' not in data or 'y' not in data:
+        return jsonify({'error': 'Invalid input data'}), 400
+    try:
+        X, y, X_new, feature_scaling_X, feature_scaling_y, test_size, random_state, string_col = get_common_params(data)
+        loss = data.get('loss', 'squared_error')
+        learning_rate = data.get('learning_rate', 0.1)
+        n_estimators = data.get('n_estimators', 100)
+        subsample = data.get('subsample', 1.0)
+        criterion = data.get('criterion', 'friedman_mse')
+        min_samples_split = data.get('min_samples_split', 2)
+        min_samples_leaf = data.get('min_samples_leaf', 1)
+        min_weight_fraction_leaf = data.get('min_weight_fraction_leaf', 0.0)
+        max_depth = data.get('max_depth', 3)
+        min_impurity_decrease = data.get('min_impurity_decrease', 0.0)
+        init = data.get('init', None)
+        max_features = data.get('max_features', None)
+        alpha = data.get('alpha', 0.9)
+        verbose = data.get('verbose', 0)
+        max_leaf_nodes = data.get('max_leaf_nodes', None)
+        warm_start = data.get('warm_start', False)
+        validation_fraction = data.get('validation_fraction', 0.1)
+        n_iter_no_change = data.get('n_iter_no_change', None)
+        tol = data.get('tol', 0.0001)
+        ccp_alpha = data.get('ccp_alpha', 0.0)
+        reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
+        results = reg_controller.gradient_boosting_reg(
+            X_new=X_new,
+            loss=loss,
+            learning_rate=learning_rate,
+            n_estimators=n_estimators,
+            subsample=subsample,
+            criterion=criterion,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            max_depth=max_depth,
+            min_impurity_decrease=min_impurity_decrease,
+            init=init,
+            random_state=random_state,
+            max_features=max_features,
+            alpha=alpha,
+            verbose=verbose,
+            max_leaf_nodes=max_leaf_nodes,
+            warm_start=warm_start,
+            validation_fraction=validation_fraction,
+            n_iter_no_change=n_iter_no_change,
+            tol=tol,
+            ccp_alpha=ccp_alpha)        
         return jsonify(create_regression_response(results)), 200
     
     except Exception as e:

@@ -66,13 +66,18 @@ class RegressionController:
     def _plot_results(self, title, model):
         buf = io.BytesIO()
         plt.figure(figsize=(10, 6))
-        X_range = np.linspace(np.min(self.X_train), np.max(self.X_train), 100).reshape(-1, 1)
-        y_pred_range = model.predict(X_range)
+        min_value = np.min(self.X_train)
+        max_value = np.max(self.X_train)
+        min_value_jarak = np.min(self.X_train) if not self.feature_scaling_X else np.min(self._inverse_transform_X(self.X_train))
+        max_value_jarak = np.max(self.X_train) if not self.feature_scaling_X else np.max(self._inverse_transform_X(self.X_train))
+        X_range = np.arange(min_value, max_value, (max_value_jarak - min_value_jarak)/100)
+        X_range = X_range.reshape(-1, 1)
+        y_pred_range = model.predict(X_range).reshape(-1, 1)
         
         if self.feature_scaling_X:
-            plt.scatter(self._inverse_transform_X(self.X_train), self.y_train, color='red', label='Training Data')
-            plt.scatter(self._inverse_transform_X(self.X_test), self.y_test, color='blue', label='Test Data')
-            plt.plot(self._inverse_transform_X(X_range), y_pred_range, color='green', linewidth=3, label='Model')
+            plt.scatter(self._inverse_transform_X(self.X_train), self.y_train if not self.feature_scaling_y else self._inverse_transform_y(self.y_train) , color='red', label='Training Data')
+            plt.scatter(self._inverse_transform_X(self.X_test), self.y_test if not self.feature_scaling_y else self._inverse_transform_y(self.y_test), color='blue', label='Test Data')
+            plt.plot(self._inverse_transform_X(X_range), y_pred_range.reshape if not self.feature_scaling_y else self._inverse_transform_y(y_pred_range), color='green', linewidth=3, label='Model')
         else:
             plt.scatter(self.X_train, self.y_train, color='red', label='Training Data')
             plt.scatter(self.X_test, self.y_test, color='blue', label='Test Data')
@@ -147,8 +152,13 @@ class RegressionController:
         
         if self.train_mode:
             y_pred = model.predict(self.X_test)
-            r2 = r2_score(self.y_test, y_pred)
-            mse = mean_squared_error(self.y_test, y_pred)
+            if self.feature_scaling_y:
+                y_pred = self._inverse_transform_y(y_pred.reshape(-1, 1)).ravel()
+                r2 = r2_score(self._inverse_transform_y(self.y_test), y_pred)
+                mse = mean_squared_error(self._inverse_transform_y(self.y_test), y_pred)
+            else:
+                r2 = r2_score(self.y_test, y_pred)
+                mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
             results['mse'] = mse
         
@@ -189,8 +199,11 @@ class RegressionController:
             y_pred = model.predict(X_poly_test)
             if self.feature_scaling_y:
                 y_pred = self._inverse_transform_y(y_pred.reshape(-1, 1)).ravel()
-            r2 = r2_score(self.y_test, y_pred)
-            mse = mean_squared_error(self.y_test, y_pred)
+                r2 = r2_score(self._inverse_transform_y(self.y_test), y_pred)
+                mse = mean_squared_error(self._inverse_transform_y(self.y_test), y_pred)
+            else:
+                r2 = r2_score(self.y_test, y_pred)
+                mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
             results['mse'] = mse
         
@@ -227,8 +240,11 @@ class RegressionController:
             y_pred = model.predict(self.X_test)
             if self.feature_scaling_y:
                 y_pred = self._inverse_transform_y(y_pred.reshape(-1, 1)).ravel()
-            r2 = r2_score(self.y_test, y_pred)
-            mse = mean_squared_error(self.y_test, y_pred)
+                r2 = r2_score(self._inverse_transform_y(self.y_test), y_pred)
+                mse = mean_squared_error(self._inverse_transform_y(self.y_test), y_pred)
+            else:
+                r2 = r2_score(self.y_test, y_pred)
+                mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
             results['mse'] = mse
         
@@ -263,8 +279,11 @@ class RegressionController:
             y_pred = model.predict(self.X_test)
             if self.feature_scaling_y:
                 y_pred = self._inverse_transform_y(y_pred.reshape(-1, 1)).ravel()
-            r2 = r2_score(self.y_test, y_pred)
-            mse = mean_squared_error(self.y_test, y_pred)
+                r2 = r2_score(self._inverse_transform_y(self.y_test), y_pred)
+                mse = mean_squared_error(self._inverse_transform_y(self.y_test), y_pred)
+            else:
+                r2 = r2_score(self.y_test, y_pred)
+                mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
             results['mse'] = mse
         
@@ -281,7 +300,7 @@ class RegressionController:
         
         return results
     
-    def decision_tree_reg(self, X_new=None, criterion='mse', splitter='best', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features=None, random_state=None, max_leaf_nodes=None, min_impurity_decrease=0.0, ccp_alpha=0.0):
+    def decision_tree_reg(self, X_new=None, criterion='squared_error', splitter='best', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features=None, random_state=None, max_leaf_nodes=None, min_impurity_decrease=0.0, ccp_alpha=0.0, monotonic_cst=None):
         model = DecisionTreeRegressor(
             criterion=criterion, 
             splitter=splitter, 
@@ -293,17 +312,22 @@ class RegressionController:
             random_state=random_state, 
             max_leaf_nodes=max_leaf_nodes, 
             min_impurity_decrease=min_impurity_decrease, 
-            ccp_alpha=ccp_alpha
+            ccp_alpha=ccp_alpha,
+            monotonic_cst=monotonic_cst
         )
         model.fit(self.X_train, self.y_train)
         results = {'model': model}
         
         if self.train_mode:
+            print(self.X_test[:,:5])
             y_pred = model.predict(self.X_test)
             if self.feature_scaling_y:
                 y_pred = self._inverse_transform_y(y_pred.reshape(-1, 1)).ravel()
-            r2 = r2_score(self.y_test, y_pred)
-            mse = mean_squared_error(self.y_test, y_pred)
+                r2 = r2_score(self._inverse_transform_y(self.y_test), y_pred)
+                mse = mean_squared_error(self._inverse_transform_y(self.y_test), y_pred)
+            else:
+                r2 = r2_score(self.y_test, y_pred)
+                mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
             results['mse'] = mse
         
@@ -320,7 +344,7 @@ class RegressionController:
         
         return results
     
-    def random_forest_reg(self, X_new=None, n_estimators=100, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None, random_state=None, verbose=0, warm_start=False, ccp_alpha=0.0, max_samples=None):
+    def random_forest_reg(self, X_new=None, n_estimators=100, criterion='squared_error', max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features=1, max_leaf_nodes=None, min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None, random_state=None, verbose=0, warm_start=False, ccp_alpha=0.0, max_samples=None, monotonic_cst=None):
         model = RandomForestRegressor(
             n_estimators=n_estimators, 
             criterion=criterion, 
@@ -338,7 +362,8 @@ class RegressionController:
             verbose=verbose, 
             warm_start=warm_start, 
             ccp_alpha=ccp_alpha, 
-            max_samples=max_samples
+            max_samples=max_samples,
+            monotonic_cst=monotonic_cst
         )
         model.fit(self.X_train, self.y_train)
         results = {'model': model}
@@ -347,8 +372,11 @@ class RegressionController:
             y_pred = model.predict(self.X_test)
             if self.feature_scaling_y:
                 y_pred = self._inverse_transform_y(y_pred.reshape(-1, 1)).ravel()
-            r2 = r2_score(self.y_test, y_pred)
-            mse = mean_squared_error(self.y_test, y_pred)
+                r2 = r2_score(self._inverse_transform_y(self.y_test), y_pred)
+                mse = mean_squared_error(self._inverse_transform_y(self.y_test), y_pred)
+            else:
+                r2 = r2_score(self.y_test, y_pred)
+                mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
             results['mse'] = mse
         
@@ -365,24 +393,29 @@ class RegressionController:
         
         return results
     
-    def gradient_boosting_reg(self, X_new=None, n_estimators=100, learning_rate=0.1, loss='squared_error', criterion='friedman_mse', min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_depth=3, max_features=None, max_leaf_nodes=None, min_impurity_decrease=0.0, subsample=1.0, alpha=0.9, random_state=None, verbose=0, warm_start=False):
+    def gradient_boosting_reg(self, X_new=None, loss='squared_error', learning_rate=0.1, n_estimators=100, subsample=1.0, criterion='friedman_mse', min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_depth=3, min_impurity_decrease=0.0, init=None, random_state=None, max_features=None, alpha=0.9, verbose=0, max_leaf_nodes=None, warm_start=False, validation_fraction=0.1, n_iter_no_change=None, tol=0.0001, ccp_alpha=0.0):
         model = GradientBoostingRegressor(
-            n_estimators=n_estimators, 
-            learning_rate=learning_rate, 
-            loss=loss, 
-            criterion=criterion, 
-            min_samples_split=min_samples_split, 
-            min_samples_leaf=min_samples_leaf, 
-            min_weight_fraction_leaf=min_weight_fraction_leaf, 
-            max_depth=max_depth, 
-            max_features=max_features, 
-            max_leaf_nodes=max_leaf_nodes, 
-            min_impurity_decrease=min_impurity_decrease, 
-            subsample=subsample, 
-            alpha=alpha, 
-            random_state=random_state, 
-            verbose=verbose, 
-            warm_start=warm_start
+            loss=loss,
+            learning_rate=learning_rate,
+            n_estimators=n_estimators,
+            subsample=subsample,
+            criterion=criterion,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            max_depth=max_depth,
+            min_impurity_decrease=min_impurity_decrease,
+            init=init,
+            random_state=random_state,
+            max_features=max_features,
+            alpha=alpha,
+            verbose=verbose,
+            max_leaf_nodes=max_leaf_nodes,
+            warm_start=warm_start,
+            validation_fraction=validation_fraction,
+            n_iter_no_change=n_iter_no_change,
+            tol=tol,
+            ccp_alpha=ccp_alpha
         )
         model.fit(self.X_train, self.y_train)
         results = {'model': model}
@@ -391,8 +424,11 @@ class RegressionController:
             y_pred = model.predict(self.X_test)
             if self.feature_scaling_y:
                 y_pred = self._inverse_transform_y(y_pred.reshape(-1, 1)).ravel()
-            r2 = r2_score(self.y_test, y_pred)
-            mse = mean_squared_error(self.y_test, y_pred)
+                r2 = r2_score(self._inverse_transform_y(self.y_test), y_pred)
+                mse = mean_squared_error(self._inverse_transform_y(self.y_test), y_pred)
+            else:
+                r2 = r2_score(self.y_test, y_pred)
+                mse = mean_squared_error(self.y_test, y_pred)
             results['r2'] = r2
             results['mse'] = mse
         
