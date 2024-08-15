@@ -6,7 +6,7 @@ regression_bp = Blueprint('regression', __name__)
 
 def create_regression_response(results):
     response = {
-        'model': str(results['model'])  # Simplified model representation
+        'model': str(results['model'])
     }
 
     if 'r2' in results:
@@ -17,15 +17,31 @@ def create_regression_response(results):
     
     if 'y_new' in results:
         response['y_new'] = results['y_new']
+    
     if 'mse' in results:
         response['mse'] = results['mse']
+    
     return response
+
 def _is_able_to_encode(X):
-        string_col = []
-        for col in range(len(X[0])):
-            if isinstance(X[0][col], str):
-                string_col.append(col)
-        return string_col
+    string_col = []
+    for col in range(len(X[0])):
+        if isinstance(X[0][col], str):
+            string_col.append(col)
+    return string_col
+
+def get_common_params(data):
+    X = data['X']
+    string_col = _is_able_to_encode(X)
+    X = np.array(X)
+    y = np.array(data['y'])
+    X_new = data.get('X_new', None)
+    feature_scaling_X = data.get('feature_scaling_X', False)
+    feature_scaling_y = data.get('feature_scaling_y', False)
+    test_size = data.get('test_size', 0.2)
+    random_state = data.get('random_state', 42)
+    return X, y, X_new, feature_scaling_X, feature_scaling_y, test_size, random_state, string_col
+
 @regression_bp.route('/linear-regression', methods=['POST'])
 def linear_regression():
     data = request.get_json()
@@ -33,21 +49,16 @@ def linear_regression():
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
-        X = data['X']
-        string_col = _is_able_to_encode(X)
-        X = np.array(X)
-        y = np.array(data['y'])
-        X_new = data.get('X_new', None)
+        X, y, X_new, feature_scaling_X, feature_scaling_y, test_size, random_state, string_col = get_common_params(data)
         copy_X = data.get('copy_X', True)
         n_jobs = data.get('n_jobs', None)
         positive = data.get('positive', False)
         fit_intercept = data.get('fit_intercept', True)
-        feature_scaling = data.get('feature_scaling', False)
-        test_size = data.get('test_size', 0.2)
-        random_state = data.get('random_state', 42)
-        reg_controller = RegressionController(X, y,feature_scaling=feature_scaling,test_size=test_size, random_state=random_state, string_col=string_col)
+        
+        reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
         results = reg_controller.linear_reg(fit_intercept=fit_intercept, X_new=X_new, copy_X=copy_X, n_jobs=n_jobs, positive=positive)
         return jsonify(create_regression_response(results)), 200
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -58,9 +69,7 @@ def poly_regression():
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
-        X = np.array(data['X'])
-        y = np.array(data['y'])
-        X_new = data.get('X_new', None)
+        X, y, X_new, feature_scaling_X, feature_scaling_y, test_size, random_state, string_col = get_common_params(data)
         degree = data.get('degree', 2)
         include_bias = data.get('include_bias', True)
         interaction_only = data.get('interaction_only', False)
@@ -69,11 +78,8 @@ def poly_regression():
         n_jobs = data.get('n_jobs', None)
         positive = data.get('positive', False)
         fit_intercept = data.get('fit_intercept', True)
-        feature_scaling = data.get('feature_scaling', False)
-        test_size = data.get('test_size', 0.2)
-        random_state = data.get('random_state', 42)
-        reg_controller = RegressionController(X, y,feature_scaling=feature_scaling,test_size=test_size, random_state=random_state)
-        results = reg_controller.poly_reg(X_new=X_new, degree=degree, include_bias=include_bias, interaction_only=interaction_only, order=order, copy_X=copy_X, n_jobs=n_jobs, positive=positive, fit_intercept=fit_intercept)        
+        reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
+        results = reg_controller.poly_reg(X_new=X_new, degree=degree, include_bias=include_bias, interaction_only=interaction_only, order=order, copy_X=copy_X, n_jobs=n_jobs, positive=positive, fit_intercept=fit_intercept)
         return jsonify(create_regression_response(results)), 200
     
     except Exception as e:
@@ -82,16 +88,11 @@ def poly_regression():
 @regression_bp.route('/svr-regression', methods=['POST'])
 def svr_regression():
     data = request.get_json()
-    
     if not data or 'X' not in data or 'y' not in data:
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
-        X = data['X']
-        string_col = _is_able_to_encode(X)
-        X = np.array(X)
-        y = np.array(data['y'])
-        X_new = data.get('X_new', None)
+        X, y, X_new, feature_scaling_X, feature_scaling_y, test_size, random_state, string_col = get_common_params(data)
         kernel = data.get('kernel', 'rbf')
         degree = data.get('degree', 3)
         gamma = data.get('gamma', 'scale')
@@ -103,14 +104,9 @@ def svr_regression():
         cache_size = data.get('cache_size', 200)
         verbose = data.get('verbose', False)
         max_iter = data.get('max_iter', -1)
-        # feature_scaling = data.get('feature_scaling', True)
-        test_size = data.get('test_size', 0.2)
-        random_state = data.get('random_state', 42)
         
-        
-        reg_controller = RegressionController(X, y,feature_scaling=True,test_size=test_size, random_state=random_state, string_col=string_col)
-        results = reg_controller.svm_reg(X_new=X_new,kernel=kernel,degree=degree,gamma=gamma,coef0=coef0,tol=tol,C=C,epsilon=epsilon,shrinking=shrinking,cache_size=cache_size,verbose=verbose,max_iter=max_iter)
-        
+        reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
+        results = reg_controller.svm_reg(X_new=X_new, kernel=kernel, degree=degree, gamma=gamma, coef0=coef0, tol=tol, C=C, epsilon=epsilon, shrinking=shrinking, cache_size=cache_size, verbose=verbose, max_iter=max_iter)
         return jsonify(create_regression_response(results)), 200
     
     except Exception as e:
@@ -119,33 +115,23 @@ def svr_regression():
 @regression_bp.route('/knn-regression', methods=['POST'])
 def knn_regression():
     data = request.get_json()
-    
     if not data or 'X' not in data or 'y' not in data:
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
-        X = data['X']
-        string_col = _is_able_to_encode(X)
-        X = np.array(X)
-        y = np.array(data['y'])
-        X_new = data.get('X_new', None)
+        X, y, X_new, feature_scaling_X, feature_scaling_y, test_size, random_state, string_col = get_common_params(data)
+
         n_neighbors = data.get('n_neighbors', 5)
         weights = data.get('weights', 'uniform')
         algorithm = data.get('algorithm', 'auto')
         leaf_size = data.get('leaf_size', 30)
         p = data.get('p', 2)
-        metric= data.get('metric', 'minkowski')
+        metric = data.get('metric', 'minkowski')
         metric_params = data.get('metric_params', None)
         n_jobs = data.get('n_jobs', None)
-
-        feature_scaling = data.get('feature_scaling', False)
-        test_size = data.get('test_size', 0.2)
-        random_state = data.get('random_state', 42)
         
-        
-        
-        reg_controller = RegressionController(X, y, feature_scaling=feature_scaling, test_size=test_size, random_state=random_state, string_col=string_col)
-        results = reg_controller.knn_reg(X_new=X_new,n_neighbors=n_neighbors, weights=weights, algorithm=algorithm, leaf_size=leaf_size, p=p, metric=metric, metric_params=metric_params, n_jobs=n_jobs)
+        reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
+        results = reg_controller.knn_reg(X_new=X_new, n_neighbors=n_neighbors, weights=weights, algorithm=algorithm, leaf_size=leaf_size, p=p, metric=metric, metric_params=metric_params, n_jobs=n_jobs)
         return jsonify(create_regression_response(results)), 200
     
     except Exception as e:
@@ -154,16 +140,11 @@ def knn_regression():
 @regression_bp.route('/decision-tree-regression', methods=['POST'])
 def decision_tree_regression():
     data = request.get_json()
-    
     if not data or 'X' not in data or 'y' not in data:
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
-        X = data['X']
-        string_col = _is_able_to_encode(X)
-        X = np.array(X)
-        y = np.array(data['y'])
-        X_new = data.get('X_new', None)
+        X, y, X_new, feature_scaling_X, feature_scaling_y, test_size, random_state, string_col = get_common_params(data)
         criterion = data.get('criterion', 'squared_error')
         splitter = data.get('splitter', 'best')
         max_depth = data.get('max_depth', None)
@@ -176,28 +157,9 @@ def decision_tree_regression():
         min_impurity_decrease = data.get('min_impurity_decrease', 0.0)
         ccp_alpha = data.get('ccp_alpha', 0.0)
         monotonic_cst = data.get('monotonic_cst', None)
-
-        feature_scaling = data.get('feature_scaling', False)
-        test_size = data.get('test_size', 0.2)
-        random_state = data.get('random_state', 42)
         
-        reg_controller = RegressionController(X, y, feature_scaling=feature_scaling, test_size=test_size, random_state=random_state, string_col=string_col)
-        results = reg_controller.decision_tree_reg(
-                    X_new=X_new,
-                    criterion=criterion,
-                    splitter=splitter,
-                    max_depth=max_depth,
-                    min_samples_split=min_samples_split,
-                    min_samples_leaf=min_samples_leaf,
-                    min_weight_fraction_leaf=min_weight_fraction_leaf,
-                    max_features=max_features,
-                    random_state=random_state_dec,
-                    max_leaf_nodes=max_leaf_nodes,
-                    min_impurity_decrease=min_impurity_decrease,
-                    ccp_alpha=ccp_alpha,
-                    monotonic_cst=monotonic_cst
-                )
-        
+        reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
+        results = reg_controller.decision_tree_reg(X_new=X_new, criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf, max_features=max_features, random_state=random_state_dec, max_leaf_nodes=max_leaf_nodes, min_impurity_decrease=min_impurity_decrease, ccp_alpha=ccp_alpha, monotonic_cst=monotonic_cst)
         return jsonify(create_regression_response(results)), 200
     
     except Exception as e:
@@ -206,25 +168,19 @@ def decision_tree_regression():
 @regression_bp.route('/random-forest-regression', methods=['POST'])
 def random_forest_regression():
     data = request.get_json()
-    
     if not data or 'X' not in data or 'y' not in data:
         return jsonify({'error': 'Invalid input data'}), 400
     
     try:
-        X = data['X']
-        string_col = _is_able_to_encode(X)
-        X = np.array(X)
-        y = np.array(data['y'])
-        X_new = data.get('X_new', None)
+        X, y, X_new, feature_scaling_X, feature_scaling_y, test_size, random_state, string_col = get_common_params(data)
         n_estimators = data.get('n_estimators', 100)
         criterion = data.get('criterion', 'squared_error')
         max_depth = data.get('max_depth', None)
         min_samples_split = data.get('min_samples_split', 2)
         min_samples_leaf = data.get('min_samples_leaf', 1)
         min_weight_fraction_leaf = data.get('min_weight_fraction_leaf', 0.0)
-        max_features = data.get('max_features', 1.0)
+        max_features = data.get('max_features', 'auto')
         max_leaf_nodes = data.get('max_leaf_nodes', None)
-        min_impurity_decrease = data.get('min_impurity_decrease', 0.0)
         bootstrap = data.get('bootstrap', True)
         oob_score = data.get('oob_score', False)
         n_jobs = data.get('n_jobs', None)
@@ -235,104 +191,9 @@ def random_forest_regression():
         max_samples = data.get('max_samples', None)
         monotonic_cst = data.get('monotonic_cst', None)
         
-        feature_scaling = data.get('feature_scaling', False)
-        test_size = data.get('test_size', 0.2)
-        random_state = data.get('random_state', 42)
-        
-        reg_controller = RegressionController(X, y, feature_scaling=feature_scaling, test_size=test_size, random_state=random_state, string_col=string_col)
-        results = reg_controller.random_forest_reg(
-                    X_new=X_new,
-                    n_estimators=n_estimators,
-                    criterion=criterion,
-                    max_depth=max_depth,
-                    min_samples_split=min_samples_split,
-                    min_samples_leaf=min_samples_leaf,
-                    min_weight_fraction_leaf=min_weight_fraction_leaf,
-                    max_features=max_features,
-                    max_leaf_nodes=max_leaf_nodes,
-                    min_impurity_decrease=min_impurity_decrease,
-                    bootstrap=bootstrap,
-                    oob_score=oob_score,
-                    n_jobs=n_jobs,
-                    random_state=random_state_rf,
-                    verbose=verbose,
-                    warm_start=warm_start,
-                    ccp_alpha=ccp_alpha,
-                    max_samples=max_samples,
-                    monotonic_cst=monotonic_cst
-                )
-        
+        reg_controller = RegressionController(X, y, feature_scaling_X=feature_scaling_X, feature_scaling_y=feature_scaling_y, test_size=test_size, random_state=random_state, string_col=string_col)
+        results = reg_controller.random_forest_reg(X_new=X_new, n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf, max_features=max_features, max_leaf_nodes=max_leaf_nodes, bootstrap=bootstrap, oob_score=oob_score, n_jobs=n_jobs, random_state=random_state_rf, verbose=verbose, warm_start=warm_start, ccp_alpha=ccp_alpha, max_samples=max_samples, monotonic_cst=monotonic_cst)
         return jsonify(create_regression_response(results)), 200
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@regression_bp.route('/gradient-boosting-regression', methods=['POST'])
-def gradient_boosting_regression():
-    data = request.get_json()
-    
-    if not data or 'X' not in data or 'y' not in data:
-        return jsonify({'error': 'Invalid input data'}), 400
-    
-    try:
-        X = data['X']
-        string_col = _is_able_to_encode(X)
-        X = np.array(X)
-        y = np.array(data['y'])
-        X_new = data.get('X_new', None)
-        n_estimators = data.get('n_estimators', 100)
-        learning_rate = data.get('learning_rate', 0.1)
-        max_depth = data.get('max_depth', 3)
-        loss = data.get('loss', 'squared_error')
-        subsample = data.get('subsample', 1.0)
-        criterion = data.get('criterion', 'friedman_mse')
-        min_samples_split = data.get('min_samples_split', 2)
-        min_samples_leaf = data.get('min_samples_leaf', 1)
-        min_weight_fraction_leaf = data.get('min_weight_fraction_leaf', 0.0)
-        min_impurity_decrease = data.get('min_impurity_decrease', 0.0)
-        init = data.get('init', None)
-        random_state_gb = data.get('random_state_gb', None)
-        max_features = data.get('max_features', None)
-        alpha = data.get('alpha', 0.9)
-        verbose = data.get('verbose', 0)
-        max_leaf_nodes = data.get('max_leaf_nodes', None)
-        warm_start = data.get('warm_start', False)
-        validation_fraction = data.get('validation_fraction', 0.1)
-        n_iter_no_change = data.get('n_iter_no_change', None)
-        tol = data.get('tol', 0.0001)
-        ccp_alpha = data.get('ccp_alpha', 0.0)
-
-        feature_scaling = data.get('feature_scaling', False)
-        test_size = data.get('test_size', 0.2)
-        random_state = data.get('random_state', 42)
-        
-        reg_controller = RegressionController(X, y, feature_scaling=feature_scaling, test_size=test_size, random_state=random_state, string_col=string_col)
-        results = reg_controller.gradient_boosting_reg(
-                        X_new=X_new,
-                        n_estimators=n_estimators,
-                        learning_rate=learning_rate,
-                        max_depth=max_depth,
-                        loss=loss,
-                        subsample=subsample,
-                        criterion=criterion,
-                        min_samples_split=min_samples_split,
-                        min_samples_leaf=min_samples_leaf,
-                        min_weight_fraction_leaf=min_weight_fraction_leaf,
-                        min_impurity_decrease=min_impurity_decrease,
-                        init=init,
-                        random_state=random_state_gb,
-                        max_features=max_features,
-                        alpha=alpha,
-                        verbose=verbose,
-                        max_leaf_nodes=max_leaf_nodes,
-                        warm_start=warm_start,
-                        validation_fraction=validation_fraction,
-                        n_iter_no_change=n_iter_no_change,
-                        tol=tol,
-                        ccp_alpha=ccp_alpha
-                    )
-        return jsonify(create_regression_response(results)), 200
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
